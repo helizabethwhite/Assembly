@@ -1,0 +1,132 @@
+#include <stdio.h>
+#include "/user/cse320/Projects/project06.support.h"
+
+/* Name: proj06.support.c
+ *
+ * Author: Hannah White
+ *
+ * Brief: code that implements add module, a module that adds together
+ * floating point values using software
+ */
+
+float add(float, float);
+
+union sp_item first;
+union sp_item second;
+
+signed int sign1;
+signed int sign2;
+signed int added_sign;
+
+unsigned int biased_exp1;
+unsigned int biased_exp2;
+unsigned int end_exp;
+
+unsigned int shift = 0;
+
+unsigned int fraction1;
+unsigned int fraction2;
+unsigned int significand1;
+unsigned int significand2;
+unsigned int added_significands;
+unsigned int final_fraction;
+
+union sp_item result;
+float final;
+
+float add (float a, float b)
+{
+  first.frep = a;
+  second.frep = b;
+
+  sign1 = (first.irep >> 31);
+  biased_exp1 = ((first.irep << 1) & 0xFF000000);
+  fraction1 = (first.irep << 9) & 0xfffffe00;
+  /// add the "hidden one"
+  significand1 =( 0x00800000 | fraction1 >> 9 ) << 4;
+
+  biased_exp2 = ((second.irep << 1) & 0xFF000000);
+  sign2 = (second.irep >> 31);
+  fraction2 = (second.irep << 9) & 0xfffffe00;
+  significand2 = ( 0x00800000 | fraction2 >> 9 ) << 4;
+
+  /// handling for special cases
+  if (biased_exp1 == 0x11111111 | biased_exp2 == 0x11111111)
+  {
+    if (fraction1 == 0x00000000 | fraction2 == 0x00000000)
+    {
+      /// infinity
+      return (1.0/0);
+    }
+    else
+    {
+      /// NaN
+      return (0.0/0);
+    }
+  }
+  else if (biased_exp1 == 0x00000000)
+  {
+    /// Zero or denormal
+    return second.frep;
+  }
+  else if (biased_exp2 == 0x00000000)
+  {
+    /// Zero or denormal
+    return first.frep;
+  }
+  else if (first.frep == 0x7f800000 | second.frep == 0x7f800000)
+  {
+    /// infinity
+    return 0x7f800000;
+  }
+
+
+  if (biased_exp1 < biased_exp2)
+  {
+    shift = (biased_exp2 - biased_exp1) >> 24;
+    significand1 = significand1 >> shift;
+    end_exp = biased_exp2;
+  }
+  else if (biased_exp2 < biased_exp1)
+  {
+    shift = (biased_exp1 - biased_exp2) >> 24;
+    significand2 = significand2 >> shift;
+    end_exp = biased_exp1;
+  } 
+
+
+  /// handle numbers with opposite signs
+  if ((sign1 == 1 | sign2 == 1) & (sign1 != sign2))
+  {
+    if (significand1 > significand2)
+    {
+      added_significands = (significand1 - significand2);
+      added_sign = sign1;
+    }
+    else
+    {
+      added_significands = (significand2 - significand1);
+      added_sign = sign2;
+    }
+  }
+  else
+  {
+    /// add the significands together
+    added_significands = (significand1 + significand2);
+    added_sign = sign1;
+  }
+
+  if (biased_exp1 == biased_exp2)
+  {
+    added_significands = added_significands << 1;
+    end_exp = biased_exp1;
+  }
+
+
+  added_significands = added_significands << 4;
+  final_fraction = added_significands << 1;
+  result.irep = (added_sign << 31 | end_exp >> 1 | final_fraction >> 9);
+
+  final = result.frep;
+  return final;
+} 

@@ -1,0 +1,3 @@
+proj08: proj08.student.o
+		gcc -s proj08 proj08.student.s
+

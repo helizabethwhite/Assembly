@@ -1,0 +1,88 @@
+
+/******************************************************************************
+  Project #4 skeleton
+******************************************************************************/
+
+#include <Sim.h>
+
+void circuits( SD, Signal, Signal, Signal, Signal, Signal, Signal );
+
+
+/******************************************************************************
+  Function "simnet"   -- test bed for student circuits
+******************************************************************************/
+
+void simnet()
+{
+  Signal Init, Clock, w, x, y, z;
+
+  // Insert your Pulsers here
+  
+  Pulser ((SD("2a"), "i -- Initialization"), Init, 'i', 10000);
+  Pulser ((SD("3a"), "c -- Clock"), Clock, 'c', 10000);
+
+  circuits( SD("1b-4b"), Init, Clock, w, x, y, z );
+
+  // Insert your Probes here 
+  Probe ((SD("1c"), "w"), w);
+  Probe ((SD("2c"), "x"), x);
+  Probe ((SD("3c"), "y"), y);
+  Probe ((SD("4c"), "z"), z);
+}
+
+
+/******************************************************************************
+  Function "circuits" -- implementation of student circuits
+******************************************************************************/
+
+void circuits( SD sd, Signal Init, Signal Clock, 
+  Signal w, Signal x, Signal y, Signal z )
+{
+  Module( (sd, "circuits"), (Init, Clock), (w, x, y, z) );
+
+  // Insert your declarations for any auxiliary Signals here
+  Signal notw, notx, noty, notz, W, X, Y, Z;
+  // Insert your DFFs here
+  Dff (SD(sd,"2g"), (Init, W, Clock, Zero), w);
+  Dff (SD(sd,"3g"), (Zero, X, Clock, Init), x);
+  Dff (SD(sd,"4g"), (Init, Y, Clock, Zero), y);
+  Dff (SD(sd,"5g"), (Zero, Z, Clock, Init), z);
+
+  // Insert your combinational logic here (Not, And, Or gates)
+  Not (SD(sd,"2b"), w, notw);
+  Not (SD(sd,"3b"), x, notx);
+  Not (SD(sd,"4b"), y, noty);
+  Not (SD(sd,"5b"), z, notz);
+
+
+
+  // W = wx + yz + wy' 
+  Signal wfirst, wsecond, wthird;
+  And (SD(sd, "2c"), (w, x), wfirst);
+  And (SD(sd, "3c"), (y, z), wsecond);
+  And (SD(sd, "4c"), (w, noty), wthird);
+  Or (SD(sd, "5c"), (wfirst, wsecond, wthird), W);
+
+
+  // X = xz' + wz + wy
+  Signal xfirst, xsecond, xthird;
+  And (SD(sd, "2d"), (x, notz), xfirst);
+  And (SD(sd, "3d"), (w, z), xsecond);
+  And (SD(sd, "4d"), (w, y), xthird);
+  Or (SD(sd, "6d"), (xfirst, xsecond, xthird), X);
+
+  // Y = y'z + xy + wy'
+  Signal yfirst, ysecond, ythird;
+  And (SD(sd, "2e"), (noty, z), yfirst);
+  And (SD(sd, "3e"), (x, y), ysecond);
+  And (SD(sd, "4e"), (w, noty), ythird); 
+  Or (SD(sd, "5e"), (yfirst, ysecond, ythird), Y);
+
+  // Z = wx + w'z' + x'y'z 
+  Signal zfirst, zsecond, zthird;
+  And (SD(sd, "2f"), (w, x), zfirst);
+  And (SD(sd, "3f"), (notw, notz), zsecond);
+  And (SD(sd, "4f"), (notx, noty, z), zthird);
+  Or (SD(sd, "5f"), (zfirst, zsecond, zthird), Z);
+}
+

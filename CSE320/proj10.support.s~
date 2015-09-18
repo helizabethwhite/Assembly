@@ -1,0 +1,236 @@
+/*
+ * Author: Hannah White
+ *
+ * Title: proj10.support.s
+ *
+ * Brief: Code that implements an assembly program that
+ * reads a data table and can perform searches, deletes, and
+ * inserts
+ */
+
+
+
+/***********************************************************************/ 
+/*  Declarations for Project #10                                       */
+/***********************************************************************/ 
+
+
+/***********************************************************************/
+/*  Function:  search                                                  */
+/*                                                                     */
+/*  Purpose:  locate and return a pointer to a player, if the          */
+/*  player is present in the table.                                    */
+/*                                                                     */
+/*  Arguments:                                                         */
+/*    pointer to table of players                                      */
+/*    jersey number of player to be located                            */
+/*    pointer to pointer to player                                     */
+/*                                                                     */
+/*  Return value:                                                      */
+/*    1 (true) if player located, 0 (false) otherwise                  */
+/***********************************************************************/
+ 
+.global search
+.section ".text"
+.align 4
+search:
+      save      %sp, -96, %sp
+
+      lduh      [%i0+2], %l0      ! get the number of players
+      ld        [%i0+4], %l1      ! get the address of the table
+
+      mov       0, %i0
+
+      clr       %l3               ! index variable, set it to 0
+
+      if:
+          cmp   %l0, 0
+          be    endloop
+          nop
+
+      loop:
+          cmp   %l3, %l0          ! compare index to number of players
+          bge   endloop
+          nop
+
+          smul  %l3, 36, %l4      ! offset <== index * element size
+          add   %l1, %l4, %l5     ! record address <== base + offset
+
+          lduh  [%l5+0], %o0      ! get the contents of the jersey field
+          
+          cmp   %o0, %i1          ! compare the jersey number to the number
+                                  ! we're looking for
+          be    foundit
+          nop
+
+          inc   %l3
+
+          ba    loop
+          nop
+      
+    foundit:
+          mov   1, %i0
+          mov   %i2, %l6
+          st    %l5, [%l6]         ! store the address of player
+    
+    endloop:
+
+          ret
+          restore
+
+
+
+/***********************************************************************/
+/*  Function:  delete                                                  */
+/*                                                                     */
+/*  Purpose:  delete a player from the table, if the                   */
+/*  player is present in the table.                                    */
+/*                                                                     */
+/*  Arguments:                                                         */
+/*    pointer to table of players                                      */
+/*    jersey number of player to be deleted                            */
+/*                                                                     */
+/*  Return value:                                                      */
+/*    1 (true) if player deleted, 0 (false) otherwise                  */
+/***********************************************************************/
+.global delete
+.section ".text"
+.align 4
+
+delete:
+      save        %sp, -96, %sp
+      
+      mov         %i0, %o0
+      mov         %i1, %o1
+      set         loc, %o2
+
+      call        search
+      nop
+
+      lduh      [%i0+2], %l0      ! get the number of players
+      ld        [%i0+4], %l1      ! get the address of the table
+      
+      mov       0, %i0
+
+      clr       %l3               ! index variable, set it to 0
+
+      if1:
+          cmp     %o0, 1
+          be      loop1
+          nop
+          ba      endif
+          nop
+      
+      loop1:
+          cmp     %l3, %l0
+          bge     endif
+          nop
+
+          smul    %l3, 36, %l4
+          add     %l1, %l4, %l5
+
+          lduh    [%l5], %l6       
+
+          cmp     %l6, %i1        ! compare jersey number to the one we want
+          be      foundit1
+          nop
+
+          inc     %l3
+
+          ba      loop1
+          nop
+
+    foundit1:
+          subcc   %l0, %l3, %l3   ! get the number of players after the one we're deleting
+          smul    %l3, 36, %l3    ! get the number of bytes ^ that equals
+          
+          mov     %l5, %o0        ! get the address of the player we are deleting
+          add     %o0, 36, %o1   ! get the address of the next player
+          
+          mov     %l3, %o2        ! move the total number of bytes we're going to be moving
+
+          call    memmove
+          nop
+          
+          subcc   %l0, 1, %l0
+          sth     %l0, [%l1+2]    ! decrement the number of players 
+
+          mov     1, %i0
+
+    endif:
+          ret
+          restore
+
+      .data
+      loc:        .skip 4
+! make sure player is in the table (search for the player)
+! remove them from table, adjusting other records 
+
+/***********************************************************************/
+/*  Function:  insert                                                  */
+/*                                                                     */
+/*  Purpose:  insert a player into the table, as long as there is      */
+/*  room in the table and the player is not already present.           */ 
+/*                                                                     */
+/*  Arguments:                                                         */
+/*    pointer to table of players                                      */
+/*    jersey number of player to be inserted                           */
+/*    pointer to name of player                                        */
+/*    number of games played                                           */
+/*    number of goals scored                                           */
+/*    number of assists scored                                         */
+/*                                                                     */
+/*  Return value:                                                      */
+/*    1 (true) if player inserted, 0 (false) otherwise                 */
+/***********************************************************************/
+
+.global insert
+.section ".text"
+.align 4
+
+insert:
+      save      %sp, -96, %sp
+
+      mov       %i0, %o0
+      mov       %i1, %o1
+      set       loc, %o2
+
+      call      search
+      nop
+
+      lduh      [%i0+2], %l0      ! get the number of players
+      ld        [%i0+4], %l1      ! get the address of the table
+      
+      call      iu_window
+      nop
+
+      mov       0, %i0
+
+      clr       %l3
+
+      if2:
+          cmp   %l0, 0
+          be    endif1
+          nop
+      
+      elseif:
+          addcc %l0, 1, %l0       ! add one to the number of players 
+          cmp   %l0, %l1          ! compare "new" number of players to capacity, make sure it doesn't go over
+          bgt   endif1
+          nop
+      
+      if3:
+          cmp   %o0, 1            ! make sure jersey number is unique by calling search
+          be    endif1 
+          nop
+
+      loop2:
+          mov   1, %i0
+
+      endif1:
+          ret
+          restore
+
+
+! find out if the jersey number is unique (search through the table)
+! place record in the table, adjust other records 
